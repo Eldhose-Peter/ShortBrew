@@ -15,6 +15,13 @@ public class UrlCacheService {
         this.redisTemplate = redisTemplate;
     }
 
+    public String get(String code) {
+        if (code == null || code.isBlank()) {
+            return null;
+        }
+        return redisTemplate.opsForValue().get(getCacheKey(code));
+    }
+
     public void put(String code, String targetUrl, boolean isActive, Instant expiresAt) {
         String key = getCacheKey(code);
         if (!isActive || (expiresAt != null && expiresAt.isBefore(Instant.now()))) {

@@ -74,6 +74,18 @@ public class UrlRepository {
         }
     }
 
+    public Optional<Url> findByCode(String code) {
+        String sql = "SELECT id, short_code, custom_alias, target_url, title, owner_id, created_at, expires_at, is_active, total_clicks " +
+                     "FROM urls WHERE short_code = :code OR custom_alias = :code";
+        MapSqlParameterSource params = new MapSqlParameterSource("code", code);
+        try {
+            Url url = jdbc.queryForObject(sql, params, urlRowMapper);
+            return Optional.ofNullable(url);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
+    }
+
     public Url save(Url url) {
         String sql = "INSERT INTO urls (short_code, custom_alias, target_url, title, owner_id, expires_at, is_active) " +
                      "VALUES (:short_code, :custom_alias, :target_url, :title, :owner_id, :expires_at, :is_active) " +
