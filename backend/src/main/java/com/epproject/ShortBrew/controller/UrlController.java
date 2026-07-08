@@ -8,6 +8,8 @@ import com.epproject.ShortBrew.model.Url;
 import com.epproject.ShortBrew.model.User;
 import com.epproject.ShortBrew.repository.UrlRepository.UrlSearchResult;
 import com.epproject.ShortBrew.security.CurrentUser;
+import com.epproject.ShortBrew.security.RateLimit;
+import com.epproject.ShortBrew.security.RateLimitType;
 import com.epproject.ShortBrew.security.RequireAuth;
 import com.epproject.ShortBrew.service.UrlService;
 import org.springframework.beans.factory.annotation.Value;
@@ -34,6 +36,7 @@ public class UrlController {
     }
 
     @PostMapping
+    @RateLimit(name = "create", limit = 10, type = RateLimitType.USER)
     public ResponseEntity<UrlResponse> createUrl(
             @RequestBody UrlCreateRequest request,
             @CurrentUser User currentUser

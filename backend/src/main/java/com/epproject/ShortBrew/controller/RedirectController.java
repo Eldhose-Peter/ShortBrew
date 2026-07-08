@@ -1,5 +1,7 @@
 package com.epproject.ShortBrew.controller;
 
+import com.epproject.ShortBrew.security.RateLimit;
+import com.epproject.ShortBrew.security.RateLimitType;
 import com.epproject.ShortBrew.service.RedirectionService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -18,6 +20,7 @@ public class RedirectController {
     }
 
     @GetMapping("/{code}")
+    @RateLimit(name = "redirect", limit = 30, type = RateLimitType.IP)
     public ResponseEntity<Void> redirect(@PathVariable("code") String code) {
         String targetUrl = redirectionService.resolveRedirect(code);
         return ResponseEntity.status(HttpStatus.FOUND)
