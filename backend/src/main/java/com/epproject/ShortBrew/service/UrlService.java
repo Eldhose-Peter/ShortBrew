@@ -62,7 +62,7 @@ public class UrlService {
         Url saved = urlRepository.updateShortCode(savedWithoutShortCode.id(), shortCode);
 
         // Repopulate cache for new effective code
-        urlCacheService.put(saved.getEffectiveCode(), saved.targetUrl(), saved.isActive(), saved.expiresAt());
+        urlCacheService.put(saved.getEffectiveCode(), saved);
 
         return saved;
     }
@@ -122,7 +122,7 @@ public class UrlService {
 
         // Repopulate Redis cache entry for the new effective code if active
         if (saved.isActive()) {
-            urlCacheService.put(newEffectiveCode, saved.targetUrl(), saved.isActive(), saved.expiresAt());
+            urlCacheService.put(newEffectiveCode, saved);
         }
 
         return saved;
