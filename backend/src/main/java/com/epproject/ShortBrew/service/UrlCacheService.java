@@ -13,16 +13,14 @@ import java.time.Instant;
 public class UrlCacheService {
 
     private final StringRedisTemplate redisTemplate;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final int cacheTtlSeconds;
 
     public UrlCacheService(
             StringRedisTemplate redisTemplate,
-            ObjectMapper objectMapper,
             @org.springframework.beans.factory.annotation.Value("${URL_CACHE_TTL_SECONDS:3600}") int cacheTtlSeconds
     ) {
         this.redisTemplate = redisTemplate;
-        this.objectMapper = objectMapper;
         this.cacheTtlSeconds = cacheTtlSeconds;
     }
 
