@@ -24,7 +24,7 @@ public class UrlCacheService {
         this.cacheTtlSeconds = cacheTtlSeconds;
     }
 
-    public String getValidatedTargetUrl(String code) {
+    public UrlCachePayload getValidatedUrl(String code) {
         String json = redisTemplate.opsForValue().get(getCacheKey(code));
         if (json == null) {
             return null;
@@ -44,7 +44,7 @@ public class UrlCacheService {
                     throw new GoneException("URL has expired");
                 }
             }
-            return payload.targetUrl();
+            return payload;
         } catch (GoneException e) {
             throw e;
         } catch (Exception e) {
