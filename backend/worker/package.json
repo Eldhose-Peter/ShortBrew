@@ -2,11 +2,11 @@
   "name": "click-worker",
   "version": "1.0.0",
   "description": "TypeScript worker to consume click events from RabbitMQ and persist them to PostgreSQL",
-  "main": "dist/app.js",
+  "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/app.js",
-    "dev": "ts-node src/app.ts"
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts"
   },
   "dependencies": {
     "amqplib": "^0.10.4",

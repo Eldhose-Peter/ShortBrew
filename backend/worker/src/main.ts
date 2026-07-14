@@ -1,15 +1,10 @@
-import * as dotenv from 'dotenv';
-import { startWorker } from './event-consumer';
-import { pool } from './db';
+import { startWorker } from './messaging/consumer';
+import { dbPool } from './database/connection';
 
-// Load environment variables (from .env or local environment)
-dotenv.config();
-
-// Handle termination gracefully
 const shutdown = async () => {
   console.log('Shutting down. Closing database pool...');
   try {
-    await pool.end();
+    await dbPool.end();
     console.log('Database pool closed successfully.');
     process.exit(0);
   } catch (err) {
@@ -21,5 +16,5 @@ const shutdown = async () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-// Start the worker
+// Start the worker fleet consumer
 startWorker();
