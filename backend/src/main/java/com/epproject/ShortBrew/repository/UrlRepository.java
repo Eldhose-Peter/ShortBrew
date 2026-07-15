@@ -1,6 +1,7 @@
 package com.epproject.ShortBrew.repository;
 
 import com.epproject.ShortBrew.model.Url;
+import com.epproject.ShortBrew.controller.dto.TopURLEntry;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -166,5 +167,41 @@ public class UrlRepository {
         List<Url> items = jdbc.query(sql.toString(), params, urlRowMapper);
 
         return new UrlSearchResult(items, totalCount);
+    }
+
+    public long totalClicksForOwner(UUID ownerId) {
+        String sql = "SELECT COALESCE(SUM(total_clicks), 0) FROM urls WHERE owner_id = :owner_id";
+        MapSqlParameterSource params = new MapSqlParameterSource("owner_id", ownerId);
+        Long total = jdbc.queryForObject(sql, params, Long.class);
+        return total != null ? total : 0L;
+    }
+
+    public List<TopURLEntry> topUrlsForOwner(UUID ownerId, int limit) {
+        String sql = "SELECT short_code, custom_alias, target_url, title, total_clicks " +
+                     "FROM urls " +
+                     "WHERE owner_id = :owner_id " +
+                     "ORDER BY total_clicks DESC " +
+                     "LIMIT :limit";
+        MapSqlParameterSource params = new MapSqlParameterSource()
+            .addValue("owner_id", ownerId)
+            .addValue("limit", limit);
+        return jdbc.query(sql, params, (rs, rowNum) -> {
+            String shortCode = rs.getString("short_code");
+            String customAlias = rs.getString("custom_alias");
+            String effectiveCode = (customAlias != null && !customAlias.isBlank()) ? customAlias : shortCode;
+            return new TopURLEntry(
+                effectiveCode,
+                rs.getString("target_url"),
+                rs.getString("title"),
+                rs.getLong("total_clicks")
+            );
+        });
+    }
+
+    public long totalUrlsForOwner(UUID ownerId) {
+        String sql = "SELECT COUNT(*) FROM urls WHERE owner_id = :owner_id";
+        MapSqlParameterSource params = new MapSqlParameterSource("owner_id", ownerId);
+        Long total = jdbc.queryForObject(sql, params, Long.class);
+        return total != null ? total : 0L;
     }
 }
