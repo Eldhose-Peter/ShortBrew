@@ -1,3 +1,16 @@
+x-backend-env: &backend-env
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${POSTGRES_DB:-shortbrew}
+  DB_USER: ${POSTGRES_USER:-postgres}
+  DB_PASSWORD: ${POSTGRES_PASSWORD:-password}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: guest
+  RABBITMQ_PASSWORD: guest
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -15,6 +28,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks:
+      - shortbrew
 
   redis:
     image: redis:7-alpine
@@ -25,6 +40,8 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    networks:
+      - shortbrew
 
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
@@ -36,6 +53,84 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - shortbrew
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      <<: *backend-env
+      JWT_SECRET: ${SECRET_KEY:-default-secret-key-should-be-replaced-in-production-1234567890}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortbrew
+
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      <<: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - shortbrew
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"
+      - "--web.enable-lifecycle"
+    depends_on:
+      - backend
+    networks:
+      - shortbrew
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - shortbrew
 
 volumes:
   pgdata:
+  grafana_data:
+  prometheus_data:
+
+networks:
+  shortbrew:
+    driver: bridge

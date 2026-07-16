@@ -22,28 +22,22 @@ ShortBrew uses environment variables for configuration. In local development, th
 
 ### 1.2 Infrastructure (PostgreSQL, Redis, RabbitMQ)
 
+Both the Spring Boot API and the TypeScript Worker share the same unified environment keys for infrastructure connectivity:
+
 | Variable | Description | Default / Local Dev |
 | :--- | :--- | :--- |
-| `POSTGRES_USER` | PostgreSQL user | `postgres` |
-| `POSTGRES_PASSWORD` | PostgreSQL password | `password` |
-| `POSTGRES_DB` | PostgreSQL database name | `shortbrew` |
-| `POSTGRES_HOST` | Hostname of PostgreSQL container/service | `postgres` |
-| `POSTGRES_PORT` | PostgreSQL port | `5432` |
-| `REDIS_HOST` | Hostname of Redis container/service | `redis` |
+| `DB_HOST` | Hostname of the PostgreSQL database | `localhost` / `postgres` |
+| `DB_PORT` | Port of the PostgreSQL database | `5432` |
+| `DB_NAME` | PostgreSQL database name | `shortbrew` |
+| `DB_USER` | PostgreSQL user | `postgres` |
+| `DB_PASSWORD` | PostgreSQL password | `password` |
+| `REDIS_HOST` | Hostname of Redis container/service | `localhost` / `redis` |
 | `REDIS_PORT` | Redis port | `6379` |
 | `URL_CACHE_TTL_SECONDS` | Cache expiration duration for resolved URLs in Redis | `3600` (1 hour) |
-| `RABBITMQ_HOST` | Hostname of RabbitMQ broker service | `rabbitmq` |
+| `RABBITMQ_HOST` | Hostname of RabbitMQ broker service | `localhost` / `rabbitmq` |
 | `RABBITMQ_PORT` | RabbitMQ broker port | `5672` |
-| `RABBITMQ_MANAGEMENT_PORT`| RabbitMQ management dashboard port | `15672` |
-
-### 1.3 Rate Limiting Controls
-
-| Variable | Description | Default / Local Dev |
-| :--- | :--- | :--- |
-| `RATE_LIMIT_CREATE_MAX` | Max URL creation requests inside the window | `30` |
-| `RATE_LIMIT_CREATE_WINDOW_SECONDS` | Window duration (seconds) for URL creation limit | `60` |
-| `RATE_LIMIT_REDIRECT_MAX` | Max redirects allowed per IP inside the window | `100` |
-| `RATE_LIMIT_REDIRECT_WINDOW_SECONDS` | Window duration (seconds) for redirect limit | `60` |
+| `RABBITMQ_USER` | RabbitMQ username | `guest` |
+| `RABBITMQ_PASSWORD` | RabbitMQ password | `guest` |
 
 ---
 
@@ -60,7 +54,7 @@ docker build -t shortbrew-backend:latest ./backend
 ```
 
 ### 2.2 Analytics Worker (Node.js)
-To package the analytics worker for production, create a standard Node.js Dockerfile inside the `worker` directory. Here is a recommended production `Dockerfile` configuration:
+To package the analytics worker for production, create a standard Node.js Dockerfile inside the `worker` directory. Here is the production [worker/Dockerfile](file:///Users/eldhosepeter/Documents/Projects/ShortBrew/worker/Dockerfile) configuration:
 
 ```dockerfile
 # Stage 1: Build TypeScript
@@ -91,10 +85,24 @@ docker build -t shortbrew-worker:latest ./worker
 
 ## 🐳 3. Full Stack Docker Compose Example
 
-For production environments where full orchestration (like Kubernetes) is not needed, you can use a unified `docker-compose.prod.yaml` file to run the entire system.
+For production environments where full orchestration (like Kubernetes) is not needed, you can use a unified `docker-compose.prod.yaml` file to run the entire system. It leverages YAML extension fields (`x-*`) and anchors (`&`/`*`) to share environment variables commonly between services without redundancy.
 
 ```yaml
 version: '3.8'
+
+# Common environment settings for backend and worker services
+x-common-env: &common-env
+  DB_HOST: postgres
+  DB_PORT: 5432
+  DB_NAME: ${POSTGRES_DB}
+  DB_USER: ${POSTGRES_USER}
+  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  REDIS_HOST: redis
+  REDIS_PORT: 6379
+  RABBITMQ_HOST: rabbitmq
+  RABBITMQ_PORT: 5672
+  RABBITMQ_USER: ${RABBITMQ_USER}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
 
 services:
   postgres:
@@ -152,18 +160,17 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - ENV=production
-      - DEBUG=false
-      - SECRET_KEY=${SECRET_KEY}
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${POSTGRES_DB}
-      - SPRING_DATASOURCE_USERNAME=${POSTGRES_USER}
-      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_RABBITMQ_HOST=rabbitmq
-      - SPRING_RABBITMQ_PORT=5672
-      - URL_CACHE_TTL_SECONDS=${URL_CACHE_TTL_SECONDS}
-      - SHORTBREW_BASE_URL=${SHORT_URL_BASE}
+      <<: *common-env
+      ENV: production
+      DEBUG: "false"
+      SECRET_KEY: ${SECRET_KEY}
+      URL_CACHE_TTL_SECONDS: ${URL_CACHE_TTL_SECONDS}
+      SHORTBREW_BASE_URL: ${SHORT_URL_BASE}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   worker:
     build: ./worker
@@ -174,17 +181,36 @@ services:
       rabbitmq:
         condition: service_healthy
     environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_NAME=${POSTGRES_DB}
-      - RABBITMQ_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+      <<: *common-env
+
+  prometheus:
+    image: prom/prometheus:latest
+    restart: always
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+    depends_on:
+      - backend
+
+  grafana:
+    image: grafana/grafana:latest
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+    depends_on:
+      - prometheus
 
 volumes:
   pgdata:
   redisdata:
   rabbitdata:
+  grafanadata:
 ```
 
 ---

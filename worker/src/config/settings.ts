@@ -11,7 +11,7 @@ export const settings = Object.freeze({
     poolSize: parseInt(process.env.DB_POOL_SIZE || '5', 10),
   },
   rabbitmq: {
-    url: process.env.RABBITMQ_URL || 'amqp://guest:guest@localhost:5672',
+    url: `amqp://${process.env.RABBITMQ_USER || 'guest'}:${process.env.RABBITMQ_PASSWORD || 'guest'}@${process.env.RABBITMQ_HOST || 'localhost'}:${process.env.RABBITMQ_PORT || '5672'}`,
     exchangeName: 'click_events',
     queueName: 'click_events.process',
     routingKey: 'click.created',
