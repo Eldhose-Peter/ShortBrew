@@ -43,6 +43,15 @@ services:
     networks:
       - shortbrew
 
+  redis_exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+    networks:
+      - shortbrew
+
   rabbitmq:
     image: rabbitmq:3.12-management-alpine
     ports:
@@ -118,7 +127,6 @@ services:
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
     volumes:
-      - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
@@ -128,7 +136,6 @@ services:
 
 volumes:
   pgdata:
-  grafana_data:
   prometheus_data:
 
 networks:
