@@ -1,7 +1,7 @@
 apiVersion: 1
 
 providers:
-  - name: CacheFlow
+  - name: ShortBrew
     type: file
     disableDeletion: true
     updateIntervalSeconds: 30
