@@ -9,5 +9,8 @@ public record ClickEventPayload(
     @JsonProperty("user_agent") String userAgent,
     @JsonProperty("ip_hash") String ipHash,
     @JsonProperty("clicked_at") String clickedAt,
-    @JsonProperty("retry_count") int retryCount
+    @JsonProperty("retry_count") int retryCount,
+    @JsonProperty("request_id") String requestId,
+    @JsonProperty("trace_id") String traceId,
+    @JsonProperty("span_id") String spanId
 ) {}

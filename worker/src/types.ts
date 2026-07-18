@@ -6,4 +6,7 @@ export interface ClickEvent {
   ip_hash?: string;
   clicked_at: string;
   retry_count?: number;
+  request_id?: string;
+  trace_id?: string;
+  span_id?: string;
 }

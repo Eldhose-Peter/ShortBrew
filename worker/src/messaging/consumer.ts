@@ -3,6 +3,8 @@ import { ClickEvent } from '../types';
 import { persistClick } from '../database/repository';
 import { republishWithBackoff } from './publisher';
 import { settings } from '../config/settings';
+import { runWithContext } from '../utils/context';
+import { logger } from '../utils/logger';
 
 /**
  * Handles incoming RabbitMQ click event messages, applying parsing validations, database persistence,
@@ -16,35 +18,35 @@ async function handleMessage(
   try {
     payload = JSON.parse(msg.content.toString());
   } catch (err) {
-    console.error(JSON.stringify({ event: 'click_event_malformed_payload_dropping' }));
+    logger.error('click_event_malformed_payload_dropping', err);
     channel.ack(msg);
     return;
   }
 
-  try {
-    await persistClick(payload);
-    channel.ack(msg);
-    console.log(JSON.stringify({ event: 'click_event_processed', url_id: payload.url_id }));
-  } catch (error) {
-    console.error(JSON.stringify({
-      event: 'click_event_processing_failed',
-      url_id: payload.url_id,
-      error: error instanceof Error ? error.stack : String(error)
-    }));
+  const headers = msg.properties.headers || {};
+  const requestId = payload.request_id || (headers['x-request-id'] as string) || (headers['request_id'] as string);
+  const traceId = payload.trace_id || (headers['x-trace-id'] as string) || (headers['trace_id'] as string);
+  const spanId = payload.span_id || (headers['x-span-id'] as string) || (headers['span_id'] as string);
 
-    const retryCount = payload.retry_count || 0;
+  await runWithContext({ request_id: requestId, trace_id: traceId, span_id: spanId }, async () => {
+    try {
+      await persistClick(payload);
+      channel.ack(msg);
+      logger.info('click_event_processed', { url_id: payload.url_id, short_code: payload.short_code });
+    } catch (error) {
+      logger.error('click_event_processing_failed', error, { url_id: payload.url_id });
 
-    if (retryCount < settings.rabbitmq.maxRetries) {
-      await republishWithBackoff(channel, payload);
-      channel.ack(msg); // original superseded by the republished retry copy
-    } else {
-      console.error(JSON.stringify({
-        event: 'click_event_max_retries_exceeded_dead_lettering',
-        url_id: payload.url_id
-      }));
-      channel.nack(msg, false, false); // route to DLQ
+      const retryCount = payload.retry_count || 0;
+
+      if (retryCount < settings.rabbitmq.maxRetries) {
+        await republishWithBackoff(channel, payload);
+        channel.ack(msg); // original superseded by the republished retry copy
+      } else {
+        logger.error('click_event_max_retries_exceeded_dead_lettering', undefined, { url_id: payload.url_id });
+        channel.nack(msg, false, false); // route to DLQ
+      }
     }
-  }
+  });
 }
 
 /**
@@ -52,7 +54,7 @@ async function handleMessage(
  */
 export async function startWorker(): Promise<void> {
   try {
-    console.log('Connecting to RabbitMQ...');
+    logger.info('Connecting to RabbitMQ...');
     const connection = await amqplib.connect(settings.rabbitmq.url);
     const channel = await connection.createChannel();
 
@@ -67,7 +69,11 @@ export async function startWorker(): Promise<void> {
 
     await channel.prefetch(settings.rabbitmq.prefetchCount);
 
-    console.log(`[*] Worker active. Listening for messages on queue '${settings.rabbitmq.queueName}' bound with key '${settings.rabbitmq.routingKey}' (prefetch: ${settings.rabbitmq.prefetchCount})`);
+    logger.info('Worker active. Listening for messages', {
+      queue: settings.rabbitmq.queueName,
+      routingKey: settings.rabbitmq.routingKey,
+      prefetch: settings.rabbitmq.prefetchCount
+    });
 
     await channel.consume(settings.rabbitmq.queueName, async (msg) => {
       if (msg) {
@@ -76,7 +82,7 @@ export async function startWorker(): Promise<void> {
     }, { noAck: false });
 
   } catch (error) {
-    console.error('[!] Worker failed to start:', error);
+    logger.error('Worker failed to start', error);
     process.exit(1);
   }
 }

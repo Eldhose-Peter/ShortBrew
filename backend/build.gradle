@@ -30,9 +30,10 @@ dependencies {
 	implementation 'com.auth0:java-jwt:4.4.0'
 	implementation 'org.mindrot:jbcrypt:0.4'
 
-	// Monitoring dependencies
+	// Monitoring & Logging dependencies
 	runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
+	implementation 'net.logstash.logback:logstash-logback-encoder:8.0'
 
 	// Database dependencies
 	runtimeOnly 'org.postgresql:postgresql'

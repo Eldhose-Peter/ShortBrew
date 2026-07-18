@@ -1,14 +1,15 @@
 import { startWorker } from './messaging/consumer';
 import { dbPool } from './database/connection';
+import { logger } from './utils/logger';
 
 const shutdown = async () => {
-  console.log('Shutting down. Closing database pool...');
+  logger.info('Shutting down. Closing database pool...');
   try {
     await dbPool.end();
-    console.log('Database pool closed successfully.');
+    logger.info('Database pool closed successfully.');
     process.exit(0);
   } catch (err) {
-    console.error('Error closing database pool:', err);
+    logger.error('Error closing database pool:', err);
     process.exit(1);
   }
 };
