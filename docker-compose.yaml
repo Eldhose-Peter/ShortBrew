@@ -69,8 +69,6 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8080:8080"
     environment:
       <<: *backend-env
       JWT_SECRET: ${SECRET_KEY:-default-secret-key-should-be-replaced-in-production-1234567890}
@@ -89,6 +87,17 @@ services:
     networks:
       - shortbrew
 
+  lb:
+    image: nginx:1.27-alpine
+    volumes:
+      - ./nginx/lb.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    networks: 
+      - shortbrew
+
   worker:
     build:
       context: ./worker
@@ -101,6 +110,19 @@ services:
       rabbitmq:
         condition: service_healthy
     networks:
+      - shortbrew
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+    ports:
+      - "3000:80"
+    depends_on:
+      - lb
+    networks: 
       - shortbrew
 
   prometheus:
