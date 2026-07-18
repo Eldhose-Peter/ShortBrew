@@ -5,6 +5,7 @@ import com.epproject.ShortBrew.model.User;
 import com.epproject.ShortBrew.service.RateLimiterService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -13,9 +14,11 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class RateLimitInterceptor implements HandlerInterceptor {
 
     private final RateLimiterService rateLimiterService;
+    private final Environment environment;
 
-    public RateLimitInterceptor(RateLimiterService rateLimiterService) {
+    public RateLimitInterceptor(RateLimiterService rateLimiterService, Environment environment) {
         this.rateLimiterService = rateLimiterService;
+        this.environment = environment;
     }
 
     @Override
@@ -31,6 +34,14 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         }
 
         if (rateLimit != null) {
+            String name = rateLimit.name();
+
+            int limit = getIntProperty("rate-limit." + name + ".max",
+                        getIntProperty("RATE_LIMIT_" + name.toUpperCase() + "_MAX", rateLimit.limit()));
+
+            int windowSeconds = getIntProperty("rate-limit." + name + ".window-seconds",
+                                getIntProperty("RATE_LIMIT_" + name.toUpperCase() + "_WINDOW_SECONDS", rateLimit.windowSeconds()));
+
             String identifier;
             if (rateLimit.type() == RateLimitType.USER) {
                 User user = (User) request.getAttribute("currentUser");
@@ -43,15 +54,26 @@ public class RateLimitInterceptor implements HandlerInterceptor {
                 identifier = getClientIp(request);
             }
 
-            String key = "rate_limit:" + rateLimit.name() + ":" + rateLimit.type().name().toLowerCase() + ":" + identifier;
-            long windowMs = rateLimit.windowSeconds() * 1000L;
+            String key = "rate_limit:" + name + ":" + rateLimit.type().name().toLowerCase() + ":" + identifier;
+            long windowMs = windowSeconds * 1000L;
 
-            if (!rateLimiterService.isAllowed(key, rateLimit.limit(), windowMs)) {
-                throw new RateLimitException("Too many requests. Limit: " + rateLimit.limit() + " requests per " + rateLimit.windowSeconds() + " seconds.");
+            if (!rateLimiterService.isAllowed(key, limit, windowMs)) {
+                throw new RateLimitException("Too many requests. Limit: " + limit + " requests per " + windowSeconds + " seconds.");
             }
         }
 
         return true;
+    }
+
+    private int getIntProperty(String key, int defaultValue) {
+        String val = environment.getProperty(key);
+        if (val != null && !val.isBlank()) {
+            try {
+                return Integer.parseInt(val.trim());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return defaultValue;
     }
 
     private String getClientIp(HttpServletRequest request) {
@@ -62,3 +84,4 @@ public class RateLimitInterceptor implements HandlerInterceptor {
         return ip.split(",")[0].trim();
     }
 }
+

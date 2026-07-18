@@ -10,6 +10,9 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 };
 
 function getMinLogLevel(): number {
+  if (process.env.DEBUG === 'true') {
+    return LOG_LEVEL_PRIORITY.debug;
+  }
   const envLevel = (process.env.LOG_LEVEL || '').toLowerCase() as LogLevel;
   if (envLevel in LOG_LEVEL_PRIORITY) {
     return LOG_LEVEL_PRIORITY[envLevel];
@@ -18,6 +21,9 @@ function getMinLogLevel(): number {
 }
 
 function isJsonFormat(): boolean {
+  if (process.env.LOG_JSON !== undefined && process.env.LOG_JSON !== '') {
+    return process.env.LOG_JSON.toLowerCase() === 'true';
+  }
   const format = (process.env.LOG_FORMAT || '').toLowerCase();
   if (format === 'console' || format === 'pretty' || format === 'text') {
     return false;

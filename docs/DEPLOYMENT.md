@@ -26,11 +26,11 @@ Both the Spring Boot API and the TypeScript Worker share the same unified enviro
 
 | Variable | Description | Default / Local Dev |
 | :--- | :--- | :--- |
-| `DB_HOST` | Hostname of the PostgreSQL database | `localhost` / `postgres` |
-| `DB_PORT` | Port of the PostgreSQL database | `5432` |
-| `DB_NAME` | PostgreSQL database name | `shortbrew` |
-| `DB_USER` | PostgreSQL user | `postgres` |
-| `DB_PASSWORD` | PostgreSQL password | `password` |
+| `POSTGRES_HOST` | Hostname of the PostgreSQL database | `localhost` / `postgres` |
+| `POSTGRES_PORT` | Port of the PostgreSQL database | `5432` |
+| `POSTGRES_DB` | PostgreSQL database name | `shortbrew` |
+| `POSTGRES_USER` | PostgreSQL user | `postgres` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | `password` |
 | `REDIS_HOST` | Hostname of Redis container/service | `localhost` / `redis` |
 | `REDIS_PORT` | Redis port | `6379` |
 | `URL_CACHE_TTL_SECONDS` | Cache expiration duration for resolved URLs in Redis | `3600` (1 hour) |
@@ -92,11 +92,11 @@ version: '3.8'
 
 # Common environment settings for backend and worker services
 x-common-env: &common-env
-  DB_HOST: postgres
-  DB_PORT: 5432
-  DB_NAME: ${POSTGRES_DB}
-  DB_USER: ${POSTGRES_USER}
-  DB_PASSWORD: ${POSTGRES_PASSWORD}
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: 5432
+  POSTGRES_DB: ${POSTGRES_DB}
+  POSTGRES_USER: ${POSTGRES_USER}
+  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
   REDIS_HOST: redis
   REDIS_PORT: 6379
   RABBITMQ_HOST: rabbitmq
