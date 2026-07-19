@@ -58,7 +58,7 @@ services:
   redis_exporter:
     image: oliver006/redis_exporter:latest
     environment:
-      REDIS_ADDR: redis://redis:6379
+      REDIS_ADDR: redis://${REDIS_HOST:-redis}:${REDIS_PORT:-6379}
     depends_on:
       redis: { condition: service_healthy }
     networks:
