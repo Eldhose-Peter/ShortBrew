@@ -6,6 +6,8 @@ import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.CacheMetrics
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.QueueMetrics;
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.WorkerStatus;
 import com.epproject.ShortBrew.repository.AnalyticsRepository;
+import com.epproject.ShortBrew.repository.DatabaseRepository;
+import com.epproject.ShortBrew.repository.DatabaseRepository.DbPoolMetrics;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -16,19 +18,22 @@ public class SystemMetricsService {
     private final RedisService redisService;
     private final RabbitMQService rabbitMQService;
     private final AnalyticsRepository analyticsRepository;
+    private final DatabaseRepository databaseRepository;
 
     public SystemMetricsService(
             RedisService redisService,
             RabbitMQService rabbitMQService,
-            AnalyticsRepository analyticsRepository
+            AnalyticsRepository analyticsRepository,
+            DatabaseRepository databaseRepository
     ) {
         this.redisService = redisService;
         this.rabbitMQService = rabbitMQService;
         this.analyticsRepository = analyticsRepository;
+        this.databaseRepository = databaseRepository;
     }
 
     /**
-     * Aggregates system metrics from domain services and repositories (Redis, RabbitMQ, analytics DB, worker fleet).
+     * Aggregates system metrics from domain services and repositories (Redis, RabbitMQ, analytics DB, DB pool, worker fleet).
      */
     public SystemMetricsResponse getMetrics() {
         CacheMetrics cache = redisService.getCacheMetrics();
@@ -40,13 +45,14 @@ public class SystemMetricsService {
         QueueMetrics queue = new QueueMetrics(queueDepth, dlqDepth, processedEvents);
 
         List<WorkerStatus> workers = redisService.getWorkerFleetStatus();
+        DbPoolMetrics dbPool = databaseRepository.getDbPoolMetrics();
 
         return new SystemMetricsResponse(
             cache,
             queue,
             workers,
-            10,
-            2
+            dbPool.poolSize(),
+            dbPool.checkedOut()
         );
     }
 }
