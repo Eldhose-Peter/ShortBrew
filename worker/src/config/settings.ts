@@ -17,5 +17,9 @@ export const settings = Object.freeze({
     routingKey: 'click.created',
     prefetchCount: parseInt(process.env.WORKER_PREFETCH_COUNT || '10', 10),
     maxRetries: parseInt(process.env.CLICK_EVENT_MAX_RETRIES || '3', 10),
+  },
+  redis: {
+    host: process.env.REDIS_HOST || 'localhost',
+    port: parseInt(process.env.REDIS_PORT || '6379', 10),
   }
 });

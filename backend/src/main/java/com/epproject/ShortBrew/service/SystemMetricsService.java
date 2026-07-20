@@ -39,10 +39,7 @@ public class SystemMetricsService {
 
         QueueMetrics queue = new QueueMetrics(queueDepth, dlqDepth, processedEvents);
 
-        List<WorkerStatus> workers = List.of(
-            new WorkerStatus("worker-1", 1.2, true),
-            new WorkerStatus("worker-2", 2.8, true)
-        );
+        List<WorkerStatus> workers = urlCacheService.getWorkerFleetStatus();
 
         return new SystemMetricsResponse(
             cache,

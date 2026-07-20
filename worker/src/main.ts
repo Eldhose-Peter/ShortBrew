@@ -1,10 +1,12 @@
 import { startWorker } from './messaging/consumer';
 import { dbPool } from './database/connection';
 import { logger } from './utils/logger';
+import { startHeartbeat, stopHeartbeat } from './utils/heartbeat';
 
 const shutdown = async () => {
-  logger.info('Shutting down. Closing database pool...');
+  logger.info('Shutting down. Closing heartbeat and database pool...');
   try {
+    await stopHeartbeat();
     await dbPool.end();
     logger.info('Database pool closed successfully.');
     process.exit(0);
@@ -17,5 +19,6 @@ const shutdown = async () => {
 process.on('SIGTERM', shutdown);
 process.on('SIGINT', shutdown);
 
-// Start the worker fleet consumer
+// Start worker heartbeat and RabbitMQ message consumer
+startHeartbeat();
 startWorker();

@@ -1,6 +1,7 @@
 package com.epproject.ShortBrew.service;
 
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.CacheMetrics;
+import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.WorkerStatus;
 import com.epproject.ShortBrew.exception.GoneException;
 import com.epproject.ShortBrew.model.Url;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -12,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 @Service
@@ -111,6 +115,32 @@ public class UrlCacheService {
             log.debug("Could not fetch Redis cache metrics: {}", e.getMessage());
         }
         return new CacheMetrics(0L, 0L, 0.0);
+    }
+
+    public List<WorkerStatus> getWorkerFleetStatus() {
+        try {
+            Map<Object, Object> entries = redisTemplate.opsForHash().entries("worker:heartbeats");
+            if (entries != null && !entries.isEmpty()) {
+                long now = System.currentTimeMillis();
+                List<WorkerStatus> workers = new ArrayList<>();
+                for (Map.Entry<Object, Object> entry : entries.entrySet()) {
+                    String workerId = (String) entry.getKey();
+                    try {
+                        long lastPing = Long.parseLong((String) entry.getValue());
+                        double secondsAgo = Math.round((now - lastPing) / 100.0) / 10.0;
+                        boolean alive = secondsAgo <= 15.0;
+                        workers.add(new WorkerStatus(workerId, secondsAgo, alive));
+                    } catch (Exception ignored) {
+                    }
+                }
+                if (!workers.isEmpty()) {
+                    return workers;
+                }
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch worker heartbeats from Redis: {}", e.getMessage());
+        }
+        return List.of();
     }
 
     private long parseLongOrDefault(String value, long defaultValue) {

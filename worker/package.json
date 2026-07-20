@@ -11,10 +11,12 @@
   "dependencies": {
     "amqplib": "^0.10.4",
     "dotenv": "^16.4.5",
+    "ioredis": "^5.4.1",
     "pg": "^8.11.5"
   },
   "devDependencies": {
     "@types/amqplib": "^0.10.5",
+    "@types/ioredis": "^5.0.0",
     "@types/node": "^20.12.7",
     "@types/pg": "^8.11.6",
     "ts-node": "^10.9.2",
