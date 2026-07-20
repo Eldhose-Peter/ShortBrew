@@ -21,17 +21,19 @@ public class SystemMetricsService {
 
     private final RabbitAdmin rabbitAdmin;
     private final JdbcTemplate jdbcTemplate;
+    private final UrlCacheService urlCacheService;
 
-    public SystemMetricsService(RabbitAdmin rabbitAdmin, JdbcTemplate jdbcTemplate) {
+    public SystemMetricsService(RabbitAdmin rabbitAdmin, JdbcTemplate jdbcTemplate, UrlCacheService urlCacheService) {
         this.rabbitAdmin = rabbitAdmin;
         this.jdbcTemplate = jdbcTemplate;
+        this.urlCacheService = urlCacheService;
     }
 
     /**
-     * Returns system metrics, dynamically querying RabbitMQ queue depth and DB event totals.
+     * Returns system metrics, dynamically querying Redis stats, RabbitMQ queue depth, and DB event totals.
      */
     public SystemMetricsResponse getMetrics() {
-        CacheMetrics cache = new CacheMetrics(1420L, 85L, 0.943);
+        CacheMetrics cache = urlCacheService.getCacheMetrics();
 
         long queueDepth = getQueueDepth(RabbitConfig.CLICK_EVENTS_QUEUE);
         long dlqDepth = getQueueDepth(RabbitConfig.CLICK_EVENTS_DLQ);

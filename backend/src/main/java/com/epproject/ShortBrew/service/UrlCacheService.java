@@ -1,16 +1,23 @@
 package com.epproject.ShortBrew.service;
 
+import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.CacheMetrics;
 import com.epproject.ShortBrew.exception.GoneException;
 import com.epproject.ShortBrew.model.Url;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Properties;
 
 @Service
 public class UrlCacheService {
+
+    private static final Logger log = LoggerFactory.getLogger(UrlCacheService.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -87,6 +94,31 @@ public class UrlCacheService {
     public void evict(String code) {
         if (code != null && !code.isBlank()) {
             redisTemplate.delete(getCacheKey(code));
+        }
+    }
+
+    public CacheMetrics getCacheMetrics() {
+        try {
+            Properties stats = redisTemplate.execute((RedisCallback<Properties>) connection -> connection.serverCommands().info("stats"));
+            if (stats != null) {
+                long hits = parseLongOrDefault(stats.getProperty("keyspace_hits"), 0L);
+                long misses = parseLongOrDefault(stats.getProperty("keyspace_misses"), 0L);
+                long total = hits + misses;
+                double hitRate = total > 0 ? (double) hits / total : 0.0;
+                return new CacheMetrics(hits, misses, hitRate);
+            }
+        } catch (Exception e) {
+            log.debug("Could not fetch Redis cache metrics: {}", e.getMessage());
+        }
+        return new CacheMetrics(0L, 0L, 0.0);
+    }
+
+    private long parseLongOrDefault(String value, long defaultValue) {
+        if (value == null) return defaultValue;
+        try {
+            return Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return defaultValue;
         }
     }
 
