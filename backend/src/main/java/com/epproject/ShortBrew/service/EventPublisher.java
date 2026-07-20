@@ -6,19 +6,38 @@ import com.epproject.ShortBrew.security.RequestIdFilter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.amqp.rabbit.core.RabbitAdmin;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.util.Properties;
 
 @Service
 public class EventPublisher {
 
     private static final Logger logger = LoggerFactory.getLogger(EventPublisher.class);
     private final RabbitTemplate rabbitTemplate;
+    private final RabbitAdmin rabbitAdmin;
 
-    public EventPublisher(RabbitTemplate rabbitTemplate) {
+    public EventPublisher(RabbitTemplate rabbitTemplate, RabbitAdmin rabbitAdmin) {
         this.rabbitTemplate = rabbitTemplate;
+        this.rabbitAdmin = rabbitAdmin;
+    }
+
+    public long getQueueDepth(String queueName) {
+        try {
+            Properties props = rabbitAdmin.getQueueProperties(queueName);
+            if (props != null) {
+                Object count = props.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
+                if (count instanceof Number number) {
+                    return number.longValue();
+                }
+            }
+        } catch (Exception e) {
+            logger.debug("Could not fetch queue depth for {}: {}", queueName, e.getMessage());
+        }
+        return 0L;
     }
 
     /**

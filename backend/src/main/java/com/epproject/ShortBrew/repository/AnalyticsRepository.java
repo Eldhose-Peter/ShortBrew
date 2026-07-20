@@ -133,4 +133,10 @@ public class AnalyticsRepository {
             rs.getLong("click_count")
         ));
     }
+
+    public long countTotalProcessedEvents() {
+        String sql = "SELECT COUNT(*) FROM click_events";
+        Long total = jdbc.queryForObject(sql, new MapSqlParameterSource(), Long.class);
+        return total != null ? total : 0L;
+    }
 }

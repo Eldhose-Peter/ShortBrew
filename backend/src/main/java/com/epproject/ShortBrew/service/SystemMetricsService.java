@@ -5,39 +5,37 @@ import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse;
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.CacheMetrics;
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.QueueMetrics;
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.WorkerStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitAdmin;
-import org.springframework.jdbc.core.JdbcTemplate;
+import com.epproject.ShortBrew.repository.AnalyticsRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Properties;
 
 @Service
 public class SystemMetricsService {
 
-    private static final Logger log = LoggerFactory.getLogger(SystemMetricsService.class);
-
-    private final RabbitAdmin rabbitAdmin;
-    private final JdbcTemplate jdbcTemplate;
     private final UrlCacheService urlCacheService;
+    private final EventPublisher eventPublisher;
+    private final AnalyticsRepository analyticsRepository;
 
-    public SystemMetricsService(RabbitAdmin rabbitAdmin, JdbcTemplate jdbcTemplate, UrlCacheService urlCacheService) {
-        this.rabbitAdmin = rabbitAdmin;
-        this.jdbcTemplate = jdbcTemplate;
+    public SystemMetricsService(
+            UrlCacheService urlCacheService,
+            EventPublisher eventPublisher,
+            AnalyticsRepository analyticsRepository
+    ) {
         this.urlCacheService = urlCacheService;
+        this.eventPublisher = eventPublisher;
+        this.analyticsRepository = analyticsRepository;
     }
 
     /**
-     * Returns system metrics, dynamically querying Redis stats, RabbitMQ queue depth, and DB event totals.
+     * Aggregates system metrics from domain services and repositories (cache, event publisher, analytics DB, worker fleet).
      */
     public SystemMetricsResponse getMetrics() {
         CacheMetrics cache = urlCacheService.getCacheMetrics();
 
-        long queueDepth = getQueueDepth(RabbitConfig.CLICK_EVENTS_QUEUE);
-        long dlqDepth = getQueueDepth(RabbitConfig.CLICK_EVENTS_DLQ);
-        long processedEvents = getProcessedEventsCount();
+        long queueDepth = eventPublisher.getQueueDepth(RabbitConfig.CLICK_EVENTS_QUEUE);
+        long dlqDepth = eventPublisher.getQueueDepth(RabbitConfig.CLICK_EVENTS_DLQ);
+        long processedEvents = analyticsRepository.countTotalProcessedEvents();
 
         QueueMetrics queue = new QueueMetrics(queueDepth, dlqDepth, processedEvents);
 
@@ -53,30 +51,5 @@ public class SystemMetricsService {
             10,
             2
         );
-    }
-
-    private long getQueueDepth(String queueName) {
-        try {
-            Properties props = rabbitAdmin.getQueueProperties(queueName);
-            if (props != null) {
-                Object count = props.get(RabbitAdmin.QUEUE_MESSAGE_COUNT);
-                if (count instanceof Number number) {
-                    return number.longValue();
-                }
-            }
-        } catch (Exception e) {
-            log.debug("Could not fetch queue depth for {}: {}", queueName, e.getMessage());
-        }
-        return 0L;
-    }
-
-    private long getProcessedEventsCount() {
-        try {
-            Long count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM click_events", Long.class);
-            return count != null ? count : 0L;
-        } catch (Exception e) {
-            log.debug("Could not fetch processed events count from database: {}", e.getMessage());
-            return 0L;
-        }
     }
 }
