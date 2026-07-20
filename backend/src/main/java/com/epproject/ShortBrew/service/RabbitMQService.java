@@ -14,17 +14,20 @@ import java.time.Instant;
 import java.util.Properties;
 
 @Service
-public class EventPublisher {
+public class RabbitMQService {
 
-    private static final Logger logger = LoggerFactory.getLogger(EventPublisher.class);
+    private static final Logger logger = LoggerFactory.getLogger(RabbitMQService.class);
     private final RabbitTemplate rabbitTemplate;
     private final RabbitAdmin rabbitAdmin;
 
-    public EventPublisher(RabbitTemplate rabbitTemplate, RabbitAdmin rabbitAdmin) {
+    public RabbitMQService(RabbitTemplate rabbitTemplate, RabbitAdmin rabbitAdmin) {
         this.rabbitTemplate = rabbitTemplate;
         this.rabbitAdmin = rabbitAdmin;
     }
 
+    /**
+     * Inspects current queue depth (ready + unacked messages) for a given RabbitMQ queue.
+     */
     public long getQueueDepth(String queueName) {
         try {
             Properties props = rabbitAdmin.getQueueProperties(queueName);

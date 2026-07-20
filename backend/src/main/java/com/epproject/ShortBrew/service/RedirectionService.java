@@ -3,6 +3,7 @@ package com.epproject.ShortBrew.service;
 import com.epproject.ShortBrew.exception.GoneException;
 import com.epproject.ShortBrew.exception.NotFoundException;
 import com.epproject.ShortBrew.model.Url;
+import com.epproject.ShortBrew.model.UrlCachePayload;
 import com.epproject.ShortBrew.repository.UrlRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
@@ -20,17 +21,17 @@ public class RedirectionService {
     private static final Logger logger = LoggerFactory.getLogger(RedirectionService.class);
 
     private final UrlRepository urlRepository;
-    private final UrlCacheService urlCacheService;
-    private final EventPublisher eventPublisher;
+    private final RedisService redisService;
+    private final RabbitMQService rabbitMQService;
 
     public RedirectionService(
             UrlRepository urlRepository,
-            UrlCacheService urlCacheService,
-            EventPublisher eventPublisher
+            RedisService redisService,
+            RabbitMQService rabbitMQService
     ) {
         this.urlRepository = urlRepository;
-        this.urlCacheService = urlCacheService;
-        this.eventPublisher = eventPublisher;
+        this.redisService = redisService;
+        this.rabbitMQService = rabbitMQService;
     }
 
     /**
@@ -45,7 +46,7 @@ public class RedirectionService {
      */
     public String resolveRedirect(String code, HttpServletRequest request) {
         // Cache-aside: check Redis first (validated internally)
-        UrlCachePayload cachedUrl = urlCacheService.getValidatedUrl(code);
+        UrlCachePayload cachedUrl = redisService.getValidatedUrl(code);
         if (cachedUrl != null) {
             publishClickEvent(cachedUrl.urlId(), code, request);
             return cachedUrl.targetUrl();
@@ -57,12 +58,12 @@ public class RedirectionService {
 
         // Validate active and expiry
         if (!url.isActive() || (url.expiresAt() != null && url.expiresAt().isBefore(Instant.now()))) {
-            urlCacheService.evict(code);
+            redisService.evict(code);
             throw new GoneException("URL has been deactivated or has expired");
         }
 
         // Repopulate cache
-        urlCacheService.put(code, url);
+        redisService.put(code, url);
 
         publishClickEvent(url.id(), code, request);
         return url.targetUrl();
@@ -78,7 +79,7 @@ public class RedirectionService {
             String clientIp = getClientIp(request);
             String ipHash = hashIp(clientIp);
 
-            eventPublisher.publishClickEvent(
+            rabbitMQService.publishClickEvent(
                     urlId,
                     shortCode,
                     referrer,

@@ -6,7 +6,6 @@ import com.epproject.ShortBrew.exception.ValidationException;
 import com.epproject.ShortBrew.model.Url;
 import com.epproject.ShortBrew.repository.UrlRepository;
 import com.epproject.ShortBrew.repository.UrlRepository.UrlSearchResult;
-import com.epproject.ShortBrew.service.UrlCacheService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,16 +17,16 @@ import java.util.UUID;
 public class UrlService {
 
     private final UrlRepository urlRepository;
-    private final UrlCacheService urlCacheService;
+    private final RedisService redisService;
     private final ShortCodeGenerator shortCodeGenerator;
 
     public UrlService(
             UrlRepository urlRepository,
-            UrlCacheService urlCacheService,
+            RedisService redisService,
             ShortCodeGenerator shortCodeGenerator
     ) {
         this.urlRepository = urlRepository;
-        this.urlCacheService = urlCacheService;
+        this.redisService = redisService;
         this.shortCodeGenerator = shortCodeGenerator;
     }
 
@@ -62,7 +61,7 @@ public class UrlService {
         Url saved = urlRepository.updateShortCode(savedWithoutShortCode.id(), shortCode);
 
         // Repopulate cache for new effective code
-        urlCacheService.put(saved.getEffectiveCode(), saved);
+        redisService.put(saved.getEffectiveCode(), saved);
 
         return saved;
     }
@@ -117,12 +116,12 @@ public class UrlService {
         String newEffectiveCode = saved.getEffectiveCode();
 
         // Invalidate old and new effective code cache entries
-        urlCacheService.evict(oldEffectiveCode);
-        urlCacheService.evict(newEffectiveCode);
+        redisService.evict(oldEffectiveCode);
+        redisService.evict(newEffectiveCode);
 
         // Repopulate Redis cache entry for the new effective code if active
         if (saved.isActive()) {
-            urlCacheService.put(newEffectiveCode, saved);
+            redisService.put(newEffectiveCode, saved);
         }
 
         return saved;
@@ -137,7 +136,7 @@ public class UrlService {
 
         String effectiveCode = existing.getEffectiveCode();
         // Invalidate cache first
-        urlCacheService.evict(effectiveCode);
+        redisService.evict(effectiveCode);
 
         urlRepository.delete(id);
     }

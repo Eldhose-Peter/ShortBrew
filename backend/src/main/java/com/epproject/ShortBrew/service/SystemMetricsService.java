@@ -13,33 +13,33 @@ import java.util.List;
 @Service
 public class SystemMetricsService {
 
-    private final UrlCacheService urlCacheService;
-    private final EventPublisher eventPublisher;
+    private final RedisService redisService;
+    private final RabbitMQService rabbitMQService;
     private final AnalyticsRepository analyticsRepository;
 
     public SystemMetricsService(
-            UrlCacheService urlCacheService,
-            EventPublisher eventPublisher,
+            RedisService redisService,
+            RabbitMQService rabbitMQService,
             AnalyticsRepository analyticsRepository
     ) {
-        this.urlCacheService = urlCacheService;
-        this.eventPublisher = eventPublisher;
+        this.redisService = redisService;
+        this.rabbitMQService = rabbitMQService;
         this.analyticsRepository = analyticsRepository;
     }
 
     /**
-     * Aggregates system metrics from domain services and repositories (cache, event publisher, analytics DB, worker fleet).
+     * Aggregates system metrics from domain services and repositories (Redis, RabbitMQ, analytics DB, worker fleet).
      */
     public SystemMetricsResponse getMetrics() {
-        CacheMetrics cache = urlCacheService.getCacheMetrics();
+        CacheMetrics cache = redisService.getCacheMetrics();
 
-        long queueDepth = eventPublisher.getQueueDepth(RabbitConfig.CLICK_EVENTS_QUEUE);
-        long dlqDepth = eventPublisher.getQueueDepth(RabbitConfig.CLICK_EVENTS_DLQ);
+        long queueDepth = rabbitMQService.getQueueDepth(RabbitConfig.CLICK_EVENTS_QUEUE);
+        long dlqDepth = rabbitMQService.getQueueDepth(RabbitConfig.CLICK_EVENTS_DLQ);
         long processedEvents = analyticsRepository.countTotalProcessedEvents();
 
         QueueMetrics queue = new QueueMetrics(queueDepth, dlqDepth, processedEvents);
 
-        List<WorkerStatus> workers = urlCacheService.getWorkerFleetStatus();
+        List<WorkerStatus> workers = redisService.getWorkerFleetStatus();
 
         return new SystemMetricsResponse(
             cache,

@@ -4,6 +4,7 @@ import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.CacheMetrics
 import com.epproject.ShortBrew.controller.dto.SystemMetricsResponse.WorkerStatus;
 import com.epproject.ShortBrew.exception.GoneException;
 import com.epproject.ShortBrew.model.Url;
+import com.epproject.ShortBrew.model.UrlCachePayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,15 +20,15 @@ import java.util.Map;
 import java.util.Properties;
 
 @Service
-public class UrlCacheService {
+public class RedisService {
 
-    private static final Logger log = LoggerFactory.getLogger(UrlCacheService.class);
+    private static final Logger log = LoggerFactory.getLogger(RedisService.class);
 
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final int cacheTtlSeconds;
 
-    public UrlCacheService(
+    public RedisService(
             StringRedisTemplate redisTemplate,
             @org.springframework.beans.factory.annotation.Value("${URL_CACHE_TTL_SECONDS:3600}") int cacheTtlSeconds
     ) {
